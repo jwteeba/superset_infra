@@ -1,0 +1,22 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: superset_redis
+
+  metadata_db:
+    image: postgres:16.6-alpine
+    container_name: superset_metadata
+    env_file:
+      - ../env/.metadata.env
+
+  superset_init:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: superset_init
+    env_file:
+      - ../env/.superset.env
+    command: ["/docker/superset-init.sh"]
+    depends_on:
+      - metadata_db
+      - redis
