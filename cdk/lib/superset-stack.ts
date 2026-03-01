@@ -51,14 +51,14 @@ export class SupersetStack extends cdk.Stack {
       engine: rds.DatabaseInstanceEngine.postgres({ version: rds.PostgresEngineVersion.VER_15 }),
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.SMALL),
       vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       credentials: rds.Credentials.fromSecret(dbSecret),
       databaseName: 'superset',
       allocatedStorage: 20,
       maxAllocatedStorage: 100,
       securityGroups: [dbSecurityGroup],
       removalPolicy: cdk.RemovalPolicy.SNAPSHOT,
-      deletionProtection: true,
+      deletionProtection: false,
     });
 
     // ElastiCache Redis
@@ -69,7 +69,7 @@ export class SupersetStack extends cdk.Stack {
 
     const redisSubnetGroup = new elasticache.CfnSubnetGroup(this, 'RedisSubnetGroup', {
       description: 'Subnet group for Redis',
-      subnetIds: vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_ISOLATED }).subnetIds,
+      subnetIds: vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }).subnetIds,
     });
 
     const redis = new elasticache.CfnCacheCluster(this, 'SupersetRedis', {
@@ -136,14 +136,14 @@ export class SupersetStack extends cdk.Stack {
         REDIS_PORT: redis.attrRedisEndpointPort,
         CELERY_BROKER_URL: `${redisEndpoint}/0`,
         CELERY_RESULT_BACKEND: `${redisEndpoint}/1`,
+        DATABASE_HOST: database.dbInstanceEndpointAddress,
+        DATABASE_PORT: database.dbInstanceEndpointPort,
         DATABASE_DB: 'superset',
       },
       secrets: {
         SUPERSET_SECRET_KEY: ecs.Secret.fromSecretsManager(supersetSecret),
         SUPERSET_META_USER: ecs.Secret.fromSecretsManager(dbSecret, 'username'),
         SUPERSET_META_PASS: ecs.Secret.fromSecretsManager(dbSecret, 'password'),
-        DATABASE_HOST: ecs.Secret.fromSecretsManager(dbSecret, 'host'),
-        DATABASE_PORT: ecs.Secret.fromSecretsManager(dbSecret, 'port'),
       },
       portMappings: [{ containerPort: 8088 }],
       healthCheck: {
@@ -173,14 +173,14 @@ export class SupersetStack extends cdk.Stack {
         REDIS_PORT: redis.attrRedisEndpointPort,
         CELERY_BROKER_URL: `${redisEndpoint}/0`,
         CELERY_RESULT_BACKEND: `${redisEndpoint}/1`,
+        DATABASE_HOST: database.dbInstanceEndpointAddress,
+        DATABASE_PORT: database.dbInstanceEndpointPort,
         DATABASE_DB: 'superset',
       },
       secrets: {
         SUPERSET_SECRET_KEY: ecs.Secret.fromSecretsManager(supersetSecret),
         SUPERSET_META_USER: ecs.Secret.fromSecretsManager(dbSecret, 'username'),
         SUPERSET_META_PASS: ecs.Secret.fromSecretsManager(dbSecret, 'password'),
-        DATABASE_HOST: ecs.Secret.fromSecretsManager(dbSecret, 'host'),
-        DATABASE_PORT: ecs.Secret.fromSecretsManager(dbSecret, 'port'),
       },
     });
 
@@ -202,14 +202,14 @@ export class SupersetStack extends cdk.Stack {
         REDIS_PORT: redis.attrRedisEndpointPort,
         CELERY_BROKER_URL: `${redisEndpoint}/0`,
         CELERY_RESULT_BACKEND: `${redisEndpoint}/1`,
+        DATABASE_HOST: database.dbInstanceEndpointAddress,
+        DATABASE_PORT: database.dbInstanceEndpointPort,
         DATABASE_DB: 'superset',
       },
       secrets: {
         SUPERSET_SECRET_KEY: ecs.Secret.fromSecretsManager(supersetSecret),
         SUPERSET_META_USER: ecs.Secret.fromSecretsManager(dbSecret, 'username'),
         SUPERSET_META_PASS: ecs.Secret.fromSecretsManager(dbSecret, 'password'),
-        DATABASE_HOST: ecs.Secret.fromSecretsManager(dbSecret, 'host'),
-        DATABASE_PORT: ecs.Secret.fromSecretsManager(dbSecret, 'port'),
       },
     });
 

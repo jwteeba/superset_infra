@@ -15,7 +15,7 @@ SECRET_KEY = os.getenv("SUPERSET_SECRET_KEY")
 CELERY_BEAT_SCHEDULER_EXPIRES = timedelta(weeks=1)
 
 # Connection to metadata database
-SQLALCHEMY_DATABASE_URI = f"postgresql://{os.getenv('SUPERSET_META_USER')}:{os.getenv('SUPERSET_META_PASS')}@metadata_db:{os.getenv('SUPERSET_META_PORT')}/superset"
+SQLALCHEMY_DATABASE_URI = f"postgresql://{os.getenv('SUPERSET_META_USER')}:{os.getenv('SUPERSET_META_PASS')}@{os.getenv('DATABASE_HOST', 'metadata_db')}:{os.getenv('DATABASE_PORT', os.getenv('SUPERSET_META_PORT', '5432'))}/{os.getenv('DATABASE_DB', 'superset')}"
 
 FEATURE_FLAGS = {
     "HORIZONTAL_FILTER_BAR": True,
