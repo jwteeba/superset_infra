@@ -21,7 +21,6 @@ export class SupersetStack extends cdk.Stack {
       subnetConfiguration: [
         { name: 'Public', subnetType: ec2.SubnetType.PUBLIC, cidrMask: 24 },
         { name: 'Private', subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS, cidrMask: 24 },
-        { name: 'Isolated', subnetType: ec2.SubnetType.PRIVATE_ISOLATED, cidrMask: 24 },
       ],
     });
 
@@ -38,6 +37,15 @@ export class SupersetStack extends cdk.Stack {
       generateSecretString: {
         excludePunctuation: true,
         passwordLength: 32,
+      },
+    });
+
+    const adminSecret = new secretsmanager.Secret(this, 'AdminSecret', {
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({ username: 'admin' }),
+        generateStringKey: 'password',
+        excludePunctuation: true,
+        passwordLength: 16,
       },
     });
 
@@ -103,6 +111,7 @@ export class SupersetStack extends cdk.Stack {
 
     dbSecret.grantRead(executionRole);
     supersetSecret.grantRead(executionRole);
+    adminSecret.grantRead(executionRole);
 
     // Task Role
     const taskRole = new iam.Role(this, 'TaskRole', {
@@ -144,6 +153,8 @@ export class SupersetStack extends cdk.Stack {
         SUPERSET_SECRET_KEY: ecs.Secret.fromSecretsManager(supersetSecret),
         SUPERSET_META_USER: ecs.Secret.fromSecretsManager(dbSecret, 'username'),
         SUPERSET_META_PASS: ecs.Secret.fromSecretsManager(dbSecret, 'password'),
+        SUPERSET_USER: ecs.Secret.fromSecretsManager(adminSecret, 'username'),
+        SUPERSET_PASSWORD: ecs.Secret.fromSecretsManager(adminSecret, 'password'),
       },
       portMappings: [{ containerPort: 8088 }],
       healthCheck: {
@@ -181,6 +192,8 @@ export class SupersetStack extends cdk.Stack {
         SUPERSET_SECRET_KEY: ecs.Secret.fromSecretsManager(supersetSecret),
         SUPERSET_META_USER: ecs.Secret.fromSecretsManager(dbSecret, 'username'),
         SUPERSET_META_PASS: ecs.Secret.fromSecretsManager(dbSecret, 'password'),
+        SUPERSET_USER: ecs.Secret.fromSecretsManager(adminSecret, 'username'),
+        SUPERSET_PASSWORD: ecs.Secret.fromSecretsManager(adminSecret, 'password'),
       },
     });
 
@@ -210,6 +223,8 @@ export class SupersetStack extends cdk.Stack {
         SUPERSET_SECRET_KEY: ecs.Secret.fromSecretsManager(supersetSecret),
         SUPERSET_META_USER: ecs.Secret.fromSecretsManager(dbSecret, 'username'),
         SUPERSET_META_PASS: ecs.Secret.fromSecretsManager(dbSecret, 'password'),
+        SUPERSET_USER: ecs.Secret.fromSecretsManager(adminSecret, 'username'),
+        SUPERSET_PASSWORD: ecs.Secret.fromSecretsManager(adminSecret, 'password'),
       },
     });
 
