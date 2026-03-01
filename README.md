@@ -11,6 +11,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed system design and component 
 ```
 superset_infra/
 ├── assets/              # Static assets
+├── cdk/                 # AWS CDK Deployment files
 ├── config/              # Configuration files
 ├── deployment/          # Docker Compose files
 ├── docker/              # Dockerfile and scripts
