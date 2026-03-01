@@ -52,7 +52,7 @@ Deploy Superset to AWS using CDK with ECS, RDS PostgreSQL, and ElastiCache Redis
 │  │  │  ┌──────────────────────────────────────────────┐    │    │   │
 │  │  │  │  RDS PostgreSQL (t3.small)                   │    │    │   │
 │  │  │  │  - Metadata database                         │    │    │   │
-│  │  │  │  - 20 GB storage (auto-scaling to 100 GB)   │     │    │   │
+│  │  │  │  - 20 GB storage (auto-scaling to 100 GB)    │    │    │   │
 │  │  │  │  - Multi-AZ: No (single instance)            │    │    │   │
 │  │  │  └──────────────────────────────────────────────┘    │    │   │
 │  │  │                                                      │    │   │
