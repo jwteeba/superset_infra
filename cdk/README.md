@@ -13,8 +13,8 @@ Deploy Superset to AWS using CDK with ECS, RDS PostgreSQL, and ElastiCache Redis
 │  │                                                              │   │
 │  │  ┌────────────────────────────────────────────────────┐      │   │
 │  │  │  Application Load Balancer (ALB)                   │      │   │
-│  │  │  - Port 443 (HTTPS) - Production                  │      │   │
-│  │  │  - Port 80 (HTTP) - Redirects to HTTPS            │      │   │
+│  │  │  - Port 443 (HTTPS) - Production                   │      │   │
+│  │  │  - Port 80 (HTTP) - Redirects to HTTPS             │      │   │
 │  │  │  - Health checks: /health                          │      │   │
 │  │  └────────────────────────────────────────────────────┘      │   │
 │  │                           │                                  │   │
