@@ -13,7 +13,8 @@ Deploy Superset to AWS using CDK with ECS, RDS PostgreSQL, and ElastiCache Redis
 │  │                                                              │   │
 │  │  ┌────────────────────────────────────────────────────┐      │   │
 │  │  │  Application Load Balancer (ALB)                   │      │   │
-│  │  │  - Port 80 (HTTP)                                  │      │   │
+│  │  │  - Port 443 (HTTPS) - Production                  │      │   │
+│  │  │  - Port 80 (HTTP) - Redirects to HTTPS            │      │   │
 │  │  │  - Health checks: /health                          │      │   │
 │  │  └────────────────────────────────────────────────────┘      │   │
 │  │                           │                                  │   │
@@ -89,11 +90,62 @@ Deploy Superset to AWS using CDK with ECS, RDS PostgreSQL, and ElastiCache Redis
 - **ECS Fargate**: Superset web app (2 tasks), Celery workers (2 tasks), Celery beat (1 task)
 - **RDS PostgreSQL**: t3.small instance for metadata storage
 - **ElastiCache Redis**: t3.micro for caching and Celery message broker
-- **ALB**: Application Load Balancer for HTTP traffic with health checks
+- **ALB**: Application Load Balancer with HTTPS (443) and HTTP to HTTPS redirect
 - **ECR**: Container registry for Superset Docker images
 - **Secrets Manager**: Secure storage for database, Superset, and admin credentials
 - **IAM**: Least-privilege roles for task execution and runtime
 - **CloudWatch**: Centralized logging with Container Insights enabled
+
+## Security Considerations
+
+### Production Requirements
+
+**HTTPS/SSL Certificate (Required for Production)**
+
+The current setup uses HTTP (port 80) which is NOT secure for production. To enable HTTPS:
+
+1. **Request SSL certificate in ACM:**
+   ```bash
+   aws acm request-certificate \
+     --domain-name yourdomain.com \
+     --validation-method DNS \
+     --region us-east-1
+   ```
+
+2. **Update CDK stack** to add HTTPS listener:
+   ```typescript
+   // Import certificate
+   const certificate = acm.Certificate.fromCertificateArn(
+     this, 'Certificate', 
+     'arn:aws:acm:us-east-1:xxx:certificate/xxx'
+   );
+
+   // Add HTTPS listener
+   const httpsListener = alb.addListener('HttpsListener', {
+     port: 443,
+     certificates: [certificate],
+     open: true,
+   });
+
+   // Redirect HTTP to HTTPS
+   listener.addAction('Redirect', {
+     action: elbv2.ListenerAction.redirect({
+       protocol: 'HTTPS',
+       port: '443',
+       permanent: true,
+     }),
+   });
+   ```
+
+3. **Point your domain** to the ALB DNS using Route 53 or your DNS provider
+
+**Other Security Best Practices:**
+- Change default admin password immediately after first login
+- Enable RDS encryption at rest
+- Enable Redis encryption in transit
+- Restrict ALB security group to specific IPs if possible
+- Enable AWS WAF for DDoS protection
+- Use AWS Secrets Manager rotation for credentials
 
 ## Prerequisites
 
