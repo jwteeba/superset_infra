@@ -4,14 +4,96 @@ Deploy Superset to AWS using CDK with ECS, RDS PostgreSQL, and ElastiCache Redis
 
 ## Architecture
 
-- **VPC**: Multi-AZ with public, private, and isolated subnets
-- **ECS Fargate**: Superset web app, Celery workers, and Celery beat
-- **RDS PostgreSQL**: Metadata database
-- **ElastiCache Redis**: Cache and Celery broker
-- **ALB**: Application Load Balancer for HTTPS/HTTP traffic
-- **ECR**: Container registry for Superset images
-- **Secrets Manager**: Secure credential storage
-- **IAM**: Least-privilege access control
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                           AWS Cloud (VPC)                           │
+│                                                                     │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │                      Public Subnets (2 AZs)                  │   │
+│  │                                                              │   │
+│  │  ┌────────────────────────────────────────────────────┐      │   │
+│  │  │  Application Load Balancer (ALB)                   │      │   │
+│  │  │  - Port 80 (HTTP)                                  │      │   │
+│  │  │  - Health checks: /health                          │      │   │
+│  │  └────────────────────────────────────────────────────┘      │   │
+│  │                           │                                  │   │
+│  └───────────────────────────┼──────────────────────────────────┘   │
+│                              │                                      │
+│                              ▼                                      │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │                   Private Subnets (2 AZs)                    │   │
+│  │                                                              │   │
+│  │  ┌─────────────────────────────────────────────────────┐     │   │
+│  │  │         ECS Fargate Cluster                         │     │   │
+│  │  │                                                     │     │   │
+│  │  │  ┌──────────────────────────────────────────────┐   │     │   │
+│  │  │  │  Superset Web Service (2 tasks)              │   │     │   │
+│  │  │  │  - Port 8088                                 │   │     │   │
+│  │  │  │  - Gunicorn with 4 workers                   │   │     │   │
+│  │  │  │  - 2048 MB / 1024 CPU                        │   │     │   │
+│  │  │  └──────────────────────────────────────────────┘   │     │   │
+│  │  │                                                     │     │   │
+│  │  │  ┌──────────────────────────────────────────────┐   │     │   │
+│  │  │  │  Celery Worker Service (2 tasks)             │   │     │   │
+│  │  │  │  - Async task processing                     │   │     │   │
+│  │  │  │  - 2048 MB / 1024 CPU                        │   │     │   │
+│  │  │  └──────────────────────────────────────────────┘   │     │   │
+│  │  │                                                     │     │   │
+│  │  │  ┌──────────────────────────────────────────────┐   │     │   │
+│  │  │  │  Celery Beat Service (1 task)                │   │     │   │
+│  │  │  │  - Scheduled task scheduler                  │   │     │   │
+│  │  │  │  - 1024 MB / 512 CPU                         │   │     │   │
+│  │  │  └──────────────────────────────────────────────┘   │     │   │
+│  │  └─────────────────────────────────────────────────────┘     │   │
+│  │                              │                               │   │
+│  │                              │                               │   │
+│  │  ┌───────────────────────────┼──────────────────────────┐    │   │
+│  │  │                           ▼                          │    │   │
+│  │  │  ┌──────────────────────────────────────────────┐    │    │   │
+│  │  │  │  RDS PostgreSQL (t3.small)                   │    │    │   │
+│  │  │  │  - Metadata database                         │    │    │   │
+│  │  │  │  - 20 GB storage (auto-scaling to 100 GB)   │     │    │   │
+│  │  │  │  - Multi-AZ: No (single instance)            │    │    │   │
+│  │  │  └──────────────────────────────────────────────┘    │    │   │
+│  │  │                                                      │    │   │
+│  │  │  ┌──────────────────────────────────────────────┐    │    │   │
+│  │  │  │  ElastiCache Redis (t3.micro)                │    │    │   │
+│  │  │  │  - Cache & Celery message broker             │    │    │   │
+│  │  │  │  - Single node                               │    │    │   │
+│  │  │  └──────────────────────────────────────────────┘    │    │   │
+│  │  └──────────────────────────────────────────────────────┘    │   │
+│  │                                                              │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │                    NAT Gateway (1 AZ)                        │   │
+│  │  - Provides internet access for private subnets              │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Supporting Services                          │
+├─────────────────────────────────────────────────────────────────────┤
+│  • ECR: Docker image repository                                     │
+│  • Secrets Manager: DB credentials, Superset secret, admin password │
+│  • CloudWatch Logs: Application logs (7-day retention)              │
+│  • IAM Roles: Task execution & task roles with least privilege      │
+│  • Security Groups: Network isolation between services              │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Architecture Components
+
+- **VPC**: Multi-AZ with public and private subnets (no isolated subnets)
+- **ECS Fargate**: Superset web app (2 tasks), Celery workers (2 tasks), Celery beat (1 task)
+- **RDS PostgreSQL**: t3.small instance for metadata storage
+- **ElastiCache Redis**: t3.micro for caching and Celery message broker
+- **ALB**: Application Load Balancer for HTTP traffic with health checks
+- **ECR**: Container registry for Superset Docker images
+- **Secrets Manager**: Secure storage for database, Superset, and admin credentials
+- **IAM**: Least-privilege roles for task execution and runtime
+- **CloudWatch**: Centralized logging with Container Insights enabled
 
 ## Prerequisites
 
